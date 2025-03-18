@@ -105,13 +105,27 @@ canvas {
 
 .hud-item {
     color: #0ff;
-    font-size: 2vmin;
-    text-shadow: 0 0 5px #0ff;
+    font-size: 3vmin; /* Increased from 2vmin */
+    text-shadow: 0 0 10px #0ff, 0 0 20px #0ff; /* Enhanced text shadow */
+    font-weight: bold; /* Added bold font weight */
     pointer-events: auto;
+    background-color: rgba(0, 0, 0, 0.5); /* Added semi-transparent background */
+    padding: 0.5vmin 1vmin; /* Added padding around text */
+    border-radius: 5px; /* Rounded corners */
+    letter-spacing: 1px; /* Better letter spacing */
+}
+
+/* Specifically enhance the score display */
+#score {
+    color: #fff; /* White text */
+    background-color: rgba(0, 0, 255, 0.3); /* Blue-tinted background */
+    border: 1px solid rgba(0, 255, 255, 0.5); /* Cyan border */
 }
 
 #lives {
     display: flex;
+    align-items: center;
+    padding: 0.5vmin 1.5vmin;
 }
 
 .life {
@@ -133,7 +147,10 @@ canvas {
     border: none;
     color: #0ff;
     cursor: pointer;
-    font-size: 2vmin;
+    font-size: 3vmin; /* Increased from 2vmin to match other HUD elements */
+    background-color: rgba(0, 0, 0, 0.5); /* Added background for consistency */
+    border-radius: 5px;
+    padding: 0.5vmin 1vmin;
 }
 
 #game-over {
@@ -154,6 +171,12 @@ canvas {
     font-size: 4vmin;
     color: #0ff;
     margin-bottom: 3vh;
+    text-shadow: 0 0 10px #0ff, 0 0 20px #0ff;
+    font-weight: bold;
+    background-color: rgba(0, 0, 0, 0.7);
+    padding: 1vmin 2vmin;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 255, 255, 0.5);
 }
 
 #particles {
@@ -185,8 +208,10 @@ canvas {
     width: 40px;
     border-radius: 20px;
     background-color: rgba(0, 255, 255, 0.5);
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
     top: 5px;
     left: 50%;
     transform: translateX(-50%);
     pointer-events: none;
+    transition: left 0.1s ease-out;
 }

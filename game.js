@@ -22,6 +22,10 @@ let touchX = null;
 let radioPlaying = false;
 let radioAudio = null;
 let isMobile = false;
+let lastValidTouchX = null;
+let touchReleaseTimer = 0;
+let stuckTimer = 0;
+let prevPlayerPaddleX = 0;
 
 // Set safe areas for mobile devices (in pixels)
 let safeAreaTop = 40;
@@ -113,7 +117,7 @@ function handleResize() {
     paddleHeight = gameHeight * 0.02;
     ballSize = Math.min(gameWidth, gameHeight) * 0.05;
     paddleSpeed = gameWidth * 0.015;
-    initialBallSpeed = gameHeight * 0.0003;
+    initialBallSpeed = gameHeight * 0.0001; // Reduced even further for better playability
     
     // Update touchpad position and size
     if (isMobile) {
@@ -180,8 +184,19 @@ function resetBall() {
 function update(deltaTime) {
     if (!gameRunning || gamePaused) return;
     
+    // Store previous paddle position for stuck detection
+    prevPlayerPaddleX = playerPaddleX;
+    
     // Calculate target position for player paddle
     let targetX = playerPaddleX;
+    
+    // Handle touch release gracefully
+    if (touchReleaseTimer > 0) {
+        touchReleaseTimer--;
+        if (touchReleaseTimer <= 0) {
+            touchX = null;
+        }
+    }
     
     // Keyboard controls - set target position
     if (keys.ArrowLeft || keys.a) {
@@ -199,8 +214,31 @@ function update(deltaTime) {
         );
     }
     
-    // Apply smooth movement to player paddle
-    playerPaddleX += (targetX - playerPaddleX) * 0.2;
+    // Apply smooth movement to player paddle - with improved responsiveness on mobile
+    const smoothingFactor = isMobile ? 0.3 : 0.2; // More responsive on mobile
+    playerPaddleX += (targetX - playerPaddleX) * smoothingFactor;
+    
+    // Detect and fix stuck paddle
+    if (Math.abs(playerPaddleX - prevPlayerPaddleX) < 0.01) {
+        stuckTimer++;
+        if (stuckTimer > 60) { // If stuck for more than 60 frames (about 1 second)
+            // Force paddle to center or last known good position
+            if (lastValidTouchX !== null) {
+                playerPaddleX = Math.min(
+                    Math.max(0, lastValidTouchX - paddleWidth/2), 
+                    gameWidth - paddleWidth
+                );
+            } else {
+                playerPaddleX = (gameWidth - paddleWidth) / 2; // Reset to center
+            }
+            stuckTimer = 0;
+        }
+    } else {
+        stuckTimer = 0; // Reset stuck timer if paddle is moving
+    }
+    
+    // Ensure paddle stays within bounds (failsafe)
+    playerPaddleX = Math.max(0, Math.min(gameWidth - paddleWidth, playerPaddleX));
     
     // AI paddle movement
     const aiTargetX = ballX - paddleWidth / 2;
@@ -348,7 +386,7 @@ function gameLoop(timestamp) {
 
 // Increase ball speed gradually
 function increaseBallSpeed() {
-    const speedIncrease = 1.02;
+    const speedIncrease = 1.01; // Reduced from 1.02 for more gradual acceleration
     ballSpeedX *= speedIncrease;
     ballSpeedY *= speedIncrease;
     
@@ -510,26 +548,30 @@ function handleKeyUp(e) {
     }
 }
 
-// Touch controls for canvas
+// Touch controls for canvas - Improved versions
 function handleTouchStart(e) {
     if (!gameRunning || e.target !== canvas) return;
     const touch = e.touches[0];
     touchX = touch.clientX;
+    // Store last valid touch position
+    lastValidTouchX = touchX;
     e.preventDefault();
 }
 
 function handleTouchMove(e) {
-    if (!gameRunning || touchX === null || e.target !== canvas) return;
+    if (!gameRunning || e.touches.length === 0) return;
     const touch = e.touches[0];
     touchX = touch.clientX;
+    // Update last valid touch position
+    lastValidTouchX = touchX;
     e.preventDefault();
 }
 
 function handleTouchEnd(e) {
-    if (e.target === canvas) {
-        touchX = null;
-        e.preventDefault();
-    }
+    // Don't immediately set touchX to null to prevent paddle from sticking
+    // Instead, gradually release control over the next few frames
+    touchReleaseTimer = 5; // Will count down in update function
+    e.preventDefault();
 }
 
 // Touch controls for touchpad
@@ -548,6 +590,8 @@ function handleTouchPadStart(e) {
     
     // Calculate paddle position based on touchpad touch
     touchX = percentage * gameWidth;
+    // Store as last valid touch position
+    lastValidTouchX = touchX;
     e.preventDefault();
 }
 
@@ -566,13 +610,20 @@ function handleTouchPadMove(e) {
     
     // Calculate paddle position based on touchpad touch
     touchX = percentage * gameWidth;
+    // Update last valid touch position
+    lastValidTouchX = touchX;
     e.preventDefault();
 }
 
 function handleTouchPadEnd(e) {
-    // Reset touchpad control
-    touchIndicator.style.left = '50%';
-    touchX = null;
+    // Gradually release control instead of immediately
+    touchReleaseTimer = 5;
+    // Don't reset the indicator immediately for better visual feedback
+    setTimeout(() => {
+        if (!mouseDown && touchX === null) {
+            touchIndicator.style.left = '50%';
+        }
+    }, 300);
     e.preventDefault();
 }
 
@@ -583,16 +634,18 @@ function handleMouseDown(e) {
     if (!gameRunning) return;
     mouseDown = true;
     touchX = e.clientX;
+    lastValidTouchX = touchX; // Store last valid touch position
 }
 
 function handleMouseMove(e) {
     if (!gameRunning || !mouseDown) return;
     touchX = e.clientX;
+    lastValidTouchX = touchX; // Update last valid touch position
 }
 
 function handleMouseUp() {
     mouseDown = false;
-    touchX = null;
+    touchReleaseTimer = 5; // Gradually release control
 }
 
 // Particle system
