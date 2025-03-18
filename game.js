@@ -2,7 +2,7 @@
 const radioStations = [
     "https://ice5.somafm.com/groovesalad-128-mp3", // SomaFM Groove Salad
     "https://stream.radioparadise.com/eclectic-192", // Radio Paradise
-    "https://icecast.radiofrance.fr/fip-midfi.mp3" // FIP Radio
+    "https://icecast.radiofrance.fr/fip-midfi.mp3"    // FIP Radio
 ];
 let currentStationIndex = 0;
 
@@ -26,6 +26,11 @@ let lastValidTouchX = null;
 let touchReleaseTimer = 0;
 let stuckTimer = 0;
 let prevPlayerPaddleX = 0;
+
+// Animation state variables for collision effects
+let ballScaleX = 1, ballScaleY = 1;        // Ball "squeeze" effect
+let playerPaddleBend = 0;                    // Player paddle bending (rotation in radians)
+let aiPaddleBend = 0;                        // AI paddle bending
 
 // Set safe areas for mobile devices (in pixels)
 let safeAreaTop = 40;
@@ -66,9 +71,7 @@ function init() {
     
     // Check for iOS devices to handle safe areas
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    
     if (isIOS) {
-        // Adjust safe areas for iOS
         safeAreaTop = 60;
         safeAreaBottom = 80;
     }
@@ -77,22 +80,24 @@ function init() {
     window.addEventListener('resize', handleResize);
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
-    // Only attach canvas touch events for non-mobile devices.
+    
+    // For non-mobile devices, attach canvas touch events with passive:false
     if (!isMobile) {
-        canvas.addEventListener('touchstart', handleTouchStart);
-        canvas.addEventListener('touchmove', handleTouchMove);
-        canvas.addEventListener('touchend', handleTouchEnd);
+        canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+        canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+        canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
     }
+    // Mouse controls (common to all devices)
     canvas.addEventListener('mousedown', handleMouseDown);
     canvas.addEventListener('mousemove', handleMouseMove);
     canvas.addEventListener('mouseup', handleMouseUp);
     
-    // Set up touchpad event listeners (used on mobile)
-    touchPad.addEventListener('touchstart', handleTouchPadStart);
-    touchPad.addEventListener('touchmove', handleTouchPadMove);
-    touchPad.addEventListener('touchend', handleTouchPadEnd);
+    // Set up touchpad event listeners (used on mobile) with passive:false
+    touchPad.addEventListener('touchstart', handleTouchPadStart, { passive: false });
+    touchPad.addEventListener('touchmove', handleTouchPadMove, { passive: false });
+    touchPad.addEventListener('touchend', handleTouchPadEnd, { passive: false });
     
-    // Set up button event listeners
+    // Button event listeners
     startBtn.addEventListener('click', startGame);
     exitBtn.addEventListener('click', exitGame);
     restartBtn.addEventListener('click', restartGame);
@@ -100,35 +105,32 @@ function init() {
     pauseBtn.addEventListener('click', togglePause);
     radioToggleBtn.addEventListener('click', toggleRadio);
     
-    // Initial resize and start the animation loop
     handleResize();
     requestAnimationFrame(gameLoop);
 }
 
 // Handle window resize
 function handleResize() {
-    // Set canvas dimensions
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     gameWidth = canvas.width;
     gameHeight = canvas.height;
     
-    // Adjust game dimensions
+    // Update game dimensions
     paddleWidth = gameWidth * 0.3;
     paddleHeight = gameHeight * 0.02;
     ballSize = Math.min(gameWidth, gameHeight) * 0.05;
     paddleSpeed = gameWidth * 0.015;
-    initialBallSpeed = gameHeight * 0.0001; // Reduced even further for better playability
+    initialBallSpeed = gameHeight * 0.0001; // For better playability
     
-    // Update touchpad position and size for mobile devices
+    // Update touchpad for mobile: increase width and define a height
     if (isMobile) {
         touchPad.style.display = gameRunning ? 'block' : 'none';
-        touchPad.style.width = `${gameWidth * 0.9}px`;  // Increased width for a larger hit area
-        touchPad.style.height = `${gameHeight * 0.1}px`; // Set a visible height if not already defined in CSS
+        touchPad.style.width = `${gameWidth * 0.9}px`;  // Larger hit area
+        touchPad.style.height = `${gameHeight * 0.1}px`;  // Visible height
         touchPad.style.bottom = `${gameHeight * 0.05}px`;
     }
     
-    // Reposition elements if game is running
     if (gameRunning) {
         playerPaddleX = (gameWidth - paddleWidth) / 2;
         aiPaddleX = (gameWidth - paddleWidth) / 2;
@@ -151,48 +153,39 @@ function startGame() {
     aiPaddleX = (gameWidth - paddleWidth) / 2;
     resetBall();
     
-    // Generate initial particles
     particles = [];
     for (let i = 0; i < 50; i++) {
         particles.push(createParticle());
     }
     
-    // Show touchpad for mobile devices when game starts
     if (isMobile) {
         touchPad.style.display = 'block';
     }
 }
 
-// Reset the ball
+// Reset the ball position, speed and animation state
 function resetBall() {
     ballX = gameWidth / 2;
     ballY = gameHeight / 2;
-    
-    // Random angle but avoid horizontal directions
     let angle;
     if (Math.random() < 0.5) {
-        // Upward
         angle = Math.random() * Math.PI / 4 - Math.PI / 2 - Math.PI / 8;
     } else {
-        // Downward
         angle = Math.random() * Math.PI / 4 + Math.PI / 2 + Math.PI / 8;
     }
-    
     ballSpeedX = Math.cos(angle) * initialBallSpeed;
     ballSpeedY = Math.sin(angle) * initialBallSpeed;
+    ballScaleX = 1;
+    ballScaleY = 1;
 }
 
 // Update game state
 function update(deltaTime) {
     if (!gameRunning || gamePaused) return;
     
-    // Store previous paddle position for stuck detection
     prevPlayerPaddleX = playerPaddleX;
-    
-    // Calculate target position for player paddle
     let targetX = playerPaddleX;
     
-    // Handle touch release gracefully
     if (touchReleaseTimer > 0) {
         touchReleaseTimer--;
         if (touchReleaseTimer <= 0) {
@@ -200,51 +193,39 @@ function update(deltaTime) {
         }
     }
     
-    // Keyboard controls - set target position
     if (keys.ArrowLeft || keys.a) {
         targetX = Math.max(0, playerPaddleX - paddleSpeed * deltaTime);
     }
     if (keys.ArrowRight || keys.d) {
         targetX = Math.min(gameWidth - paddleWidth, playerPaddleX + paddleSpeed * deltaTime);
     }
-        
-    // Touch/mouse control - override keyboard target position
     if (touchX !== null) {
-        targetX = Math.min(
-            Math.max(0, touchX - paddleWidth / 2),
-            gameWidth - paddleWidth
-        );
+        targetX = Math.min(Math.max(0, touchX - paddleWidth / 2), gameWidth - paddleWidth);
     }
     
-    // Apply smooth movement – using a higher smoothing factor on mobile for quicker response
-    const smoothingFactor = isMobile ? 0.5 : 0.2;
+    // Increased smoothing for mobile: 0.6 (vs 0.2 on desktop)
+    const smoothingFactor = isMobile ? 0.6 : 0.2;
     playerPaddleX += (targetX - playerPaddleX) * smoothingFactor;
     
-    // Detect and fix stuck paddle
     if (Math.abs(playerPaddleX - prevPlayerPaddleX) < 0.01) {
         stuckTimer++;
-        if (stuckTimer > 60) { // If stuck for more than 60 frames (about 1 second)
-            // Force paddle to center or last known good position
+        if (stuckTimer > 60) {
             if (lastValidTouchX !== null) {
-                playerPaddleX = Math.min(
-                    Math.max(0, lastValidTouchX - paddleWidth / 2), 
-                    gameWidth - paddleWidth
-                );
+                playerPaddleX = Math.min(Math.max(0, lastValidTouchX - paddleWidth / 2), gameWidth - paddleWidth);
             } else {
-                playerPaddleX = (gameWidth - paddleWidth) / 2; // Reset to center
+                playerPaddleX = (gameWidth - paddleWidth) / 2;
             }
             stuckTimer = 0;
         }
     } else {
-        stuckTimer = 0; // Reset stuck timer if paddle is moving
+        stuckTimer = 0;
     }
     
-    // Ensure paddle stays within bounds (failsafe)
     playerPaddleX = Math.max(0, Math.min(gameWidth - paddleWidth, playerPaddleX));
     
     // AI paddle movement
     const aiTargetX = ballX - paddleWidth / 2;
-    const aiDiff = (aiTargetX - aiPaddleX) * 0.6; // Reduce perfection
+    const aiDiff = (aiTargetX - aiPaddleX) * 0.6;
     aiPaddleX += aiDiff * 0.03;
     aiPaddleX = Math.max(0, Math.min(gameWidth - paddleWidth, aiPaddleX));
     
@@ -255,55 +236,48 @@ function update(deltaTime) {
     // Ball collision with side walls
     if (ballX < ballSize / 2 || ballX > gameWidth - ballSize / 2) {
         ballSpeedX = -ballSpeedX;
-        // Add particles for wall collision
         addCollisionParticles(ballX, ballY, ballSpeedX > 0 ? 180 : 0);
+        ballScaleX = 1.2;
+        ballScaleY = 0.8;
     }
     
     // Ball collision with top wall (AI goal)
     if (ballY < ballSize / 2 + safeAreaTop) {
-        // Check if it hits AI paddle
         if (ballX > aiPaddleX && ballX < aiPaddleX + paddleWidth) {
             ballSpeedY = Math.abs(ballSpeedY);
-            // Angle based on where it hit the paddle
             const hitPos = (ballX - aiPaddleX) / paddleWidth;
             ballSpeedX += (hitPos - 0.5) * initialBallSpeed * 2;
-            // Add particles for paddle collision
             addCollisionParticles(ballX, ballY + ballSize / 2, 270);
-            // Speed up the ball
             increaseBallSpeed();
-            // Increase score
             score += 10;
             updateScoreDisplay();
+            ballScaleX = 1.2;
+            ballScaleY = 0.8;
+            aiPaddleBend = -0.2;
         } else {
-            // AI missed, but no penalty to player
             resetBall();
         }
     }
     
     // Ball collision with bottom wall (Player goal)
     if (ballY > gameHeight - ballSize / 2 - safeAreaBottom) {
-        // Check if it hits player paddle
         if (ballX > playerPaddleX && ballX < playerPaddleX + paddleWidth) {
             ballSpeedY = -Math.abs(ballSpeedY);
-            // Angle based on where it hit the paddle
             const hitPos = (ballX - playerPaddleX) / paddleWidth;
             ballSpeedX += (hitPos - 0.5) * initialBallSpeed * 2;
-            // Add particles for paddle collision
             addCollisionParticles(ballX, ballY - ballSize / 2, 90);
-            // Speed up the ball
             increaseBallSpeed();
-            // Increase score
             score += 10;
             updateScoreDisplay();
+            ballScaleX = 1.2;
+            ballScaleY = 0.8;
+            playerPaddleBend = 0.2;
         } else {
-            // Player missed
             lives--;
             updateLivesDisplay();
-            // Add particles for life loss
             for (let i = 0; i < 20; i++) {
                 addCollisionParticles(ballX, gameHeight - safeAreaBottom, 90, '#f55');
             }
-            
             if (lives <= 0) {
                 gameOver();
             } else {
@@ -312,16 +286,19 @@ function update(deltaTime) {
         }
     }
     
-    // Update particles
+    // Gradually recover animation states
+    const recoverySpeed = 0.1;
+    ballScaleX += (1 - ballScaleX) * recoverySpeed;
+    ballScaleY += (1 - ballScaleY) * recoverySpeed;
+    playerPaddleBend += (0 - playerPaddleBend) * recoverySpeed;
+    aiPaddleBend += (0 - aiPaddleBend) * recoverySpeed;
+    
     updateParticles(deltaTime);
 }
 
 // Render game objects
 function draw() {
-    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Draw background
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
@@ -335,32 +312,39 @@ function draw() {
     ctx.stroke();
     ctx.setLineDash([]);
     
-    // Draw paddles
+    // Draw paddles with bending effect
     ctx.fillStyle = '#0ff';
     ctx.shadowColor = '#0ff';
     ctx.shadowBlur = 10;
     
-    // AI paddle (top) - with safe area padding
-    ctx.fillRect(aiPaddleX, safeAreaTop + 10, paddleWidth, paddleHeight);
+    // AI paddle (top)
+    ctx.save();
+    ctx.translate(aiPaddleX + paddleWidth / 2, safeAreaTop + 10 + paddleHeight / 2);
+    ctx.rotate(aiPaddleBend);
+    ctx.fillRect(-paddleWidth / 2, -paddleHeight / 2, paddleWidth, paddleHeight);
+    ctx.restore();
     
-    // Player paddle (bottom) - with safe area padding
-    ctx.fillRect(playerPaddleX, gameHeight - paddleHeight - 10 - safeAreaBottom, paddleWidth, paddleHeight);
+    // Player paddle (bottom)
+    ctx.save();
+    ctx.translate(playerPaddleX + paddleWidth / 2, gameHeight - paddleHeight - 10 - safeAreaBottom + paddleHeight / 2);
+    ctx.rotate(playerPaddleBend);
+    ctx.fillRect(-paddleWidth / 2, -paddleHeight / 2, paddleWidth, paddleHeight);
+    ctx.restore();
     
-    // Draw ball with glow effect
+    // Draw ball with squeeze animation
+    ctx.save();
+    ctx.translate(ballX, ballY);
+    ctx.scale(ballScaleX, ballScaleY);
     ctx.beginPath();
     ctx.fillStyle = '#fff';
     ctx.shadowColor = '#0ff';
     ctx.shadowBlur = 15;
-    ctx.arc(ballX, ballY, ballSize / 2, 0, Math.PI * 2);
+    ctx.arc(0, 0, ballSize / 2, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
     
-    // Reset shadow
-    ctx.shadowBlur = 0;
-    
-    // Render particles
     renderParticles();
     
-    // Draw pause screen if game is paused
     if (gamePaused && gameRunning) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
         ctx.fillRect(0, 0, gameWidth, gameHeight);
@@ -374,25 +358,18 @@ function draw() {
 
 // Game loop
 function gameLoop(timestamp) {
-    // Calculate delta time (cap to prevent huge jumps)
     const deltaTime = Math.min(64, timestamp - (lastTime || timestamp));
     lastTime = timestamp;
-    
-    // Update and render
     update(deltaTime);
     draw();
-    
-    // Continue the loop
     animationId = requestAnimationFrame(gameLoop);
 }
 
 // Increase ball speed gradually
 function increaseBallSpeed() {
-    const speedIncrease = 1.01; // Reduced from 1.02 for more gradual acceleration
+    const speedIncrease = 1.01;
     ballSpeedX *= speedIncrease;
     ballSpeedY *= speedIncrease;
-    
-    // Cap to maximum speed
     const maxSpeed = initialBallSpeed * 4;
     const currentSpeed = Math.sqrt(ballSpeedX * ballSpeedX + ballSpeedY * ballSpeedY);
     if (currentSpeed > maxSpeed) {
@@ -407,8 +384,6 @@ function gameOver() {
     gameRunning = false;
     finalScoreDisplay.textContent = score;
     gameOverScreen.style.display = 'flex';
-    
-    // Hide touchpad when game is over
     if (isMobile) {
         touchPad.style.display = 'none';
     }
@@ -425,8 +400,6 @@ function showMenu() {
     gameOverScreen.style.display = 'none';
     menuScreen.style.display = 'flex';
     gameRunning = false;
-    
-    // Hide touchpad when in menu
     if (isMobile) {
         touchPad.style.display = 'none';
     }
@@ -436,7 +409,6 @@ function showMenu() {
 function exitGame() {
     if (confirm('This will close the game. Are you sure?')) {
         window.close();
-        // If window.close() doesn't work (which is likely in most browsers)
         document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;background:#000;color:#0ff;font-family:Arial;">You have exited the game. Refresh the page to play again.</div>';
     }
 }
@@ -444,7 +416,6 @@ function exitGame() {
 // Toggle pause
 function togglePause() {
     if (!gameRunning) return;
-    
     gamePaused = !gamePaused;
     pauseBtn.textContent = gamePaused ? '▶️' : '⏸️';
 }
@@ -467,7 +438,7 @@ function updateLivesDisplay() {
     }
 }
 
-// Toggle radio
+// Toggle radio stream
 function toggleRadio() {
     if (radioPlaying) {
         if (radioAudio) {
@@ -478,23 +449,14 @@ function toggleRadio() {
         radioToggleBtn.textContent = 'Radio: Off';
     } else {
         try {
-            // Create audio element with appropriate settings
             radioAudio = new Audio();
             radioAudio.crossOrigin = "anonymous";
             radioAudio.preload = "auto";
-            
-            // Load stream through a media element source
             radioAudio.src = radioStations[currentStationIndex];
-            
-            // Handle errors
             radioAudio.onerror = function(e) {
                 console.error("Error loading radio stream:", e);
-                // Try next station
                 currentStationIndex = (currentStationIndex + 1) % radioStations.length;
-                console.log("Trying next radio station:", radioStations[currentStationIndex]);
                 radioAudio.src = radioStations[currentStationIndex];
-                
-                // Only show error if all stations have been tried
                 if (currentStationIndex === 0) {
                     alert("Couldn't connect to any radio stream. Please try again later.");
                     radioPlaying = false;
@@ -505,13 +467,9 @@ function toggleRadio() {
                     });
                 }
             };
-            
-            // Start playing
             let playPromise = radioAudio.play();
-            
             if (playPromise !== undefined) {
                 playPromise.then(_ => {
-                    // Playing successfully
                     radioPlaying = true;
                     radioToggleBtn.textContent = 'Radio: On';
                 })
@@ -535,8 +493,6 @@ function handleKeyDown(e) {
         keys[e.key] = true;
         e.preventDefault();
     }
-    
-    // Pause with Escape key
     if (e.key === 'Escape' || e.key === 'p') {
         togglePause();
         e.preventDefault();
@@ -550,12 +506,11 @@ function handleKeyUp(e) {
     }
 }
 
-// Touch controls for canvas - Improved versions
+// Touch controls for canvas (non-mobile)
 function handleTouchStart(e) {
     if (!gameRunning || e.target !== canvas) return;
     const touch = e.touches[0];
     touchX = touch.clientX;
-    // Store last valid touch position
     lastValidTouchX = touchX;
     e.preventDefault();
 }
@@ -564,34 +519,24 @@ function handleTouchMove(e) {
     if (!gameRunning || e.touches.length === 0) return;
     const touch = e.touches[0];
     touchX = touch.clientX;
-    // Update last valid touch position
     lastValidTouchX = touchX;
     e.preventDefault();
 }
 
 function handleTouchEnd(e) {
-    // Gradually release control over the next few frames to avoid sticky paddle
     touchReleaseTimer = 5;
     e.preventDefault();
 }
 
-// Touch controls for touchpad
+// Touch controls for touchpad (mobile)
 function handleTouchPadStart(e) {
     if (!gameRunning) return;
     const touchPadRect = touchPad.getBoundingClientRect();
     const touch = e.touches[0];
-    
-    // Calculate relative position within touchpad
     const relativeX = Math.max(0, Math.min(touch.clientX - touchPadRect.left, touchPadRect.width));
-    const touchPadWidth = touchPadRect.width;
-    const percentage = relativeX / touchPadWidth;
-    
-    // Update touch indicator position
+    const percentage = relativeX / touchPadRect.width;
     touchIndicator.style.left = `${relativeX}px`;
-    
-    // Calculate paddle position based on touchpad touch
     touchX = percentage * gameWidth;
-    // Store as last valid touch position
     lastValidTouchX = touchX;
     e.preventDefault();
 }
@@ -600,26 +545,16 @@ function handleTouchPadMove(e) {
     if (!gameRunning) return;
     const touchPadRect = touchPad.getBoundingClientRect();
     const touch = e.touches[0];
-    
-    // Calculate relative position within touchpad
     const relativeX = Math.max(0, Math.min(touch.clientX - touchPadRect.left, touchPadRect.width));
-    const touchPadWidth = touchPadRect.width;
-    const percentage = relativeX / touchPadWidth;
-    
-    // Update touch indicator position
+    const percentage = relativeX / touchPadRect.width;
     touchIndicator.style.left = `${relativeX}px`;
-    
-    // Calculate paddle position based on touchpad touch
     touchX = percentage * gameWidth;
-    // Update last valid touch position
     lastValidTouchX = touchX;
     e.preventDefault();
 }
 
 function handleTouchPadEnd(e) {
-    // Gradually release control instead of immediately
     touchReleaseTimer = 5;
-    // Don't reset the indicator immediately for better visual feedback
     setTimeout(() => {
         if (!mouseDown && touchX === null) {
             touchIndicator.style.left = '50%';
@@ -630,23 +565,20 @@ function handleTouchPadEnd(e) {
 
 // Mouse controls
 let mouseDown = false;
-
 function handleMouseDown(e) {
     if (!gameRunning) return;
     mouseDown = true;
     touchX = e.clientX;
-    lastValidTouchX = touchX; // Store last valid touch position
+    lastValidTouchX = touchX;
 }
-
 function handleMouseMove(e) {
     if (!gameRunning || !mouseDown) return;
     touchX = e.clientX;
-    lastValidTouchX = touchX; // Update last valid touch position
+    lastValidTouchX = touchX;
 }
-
 function handleMouseUp() {
     mouseDown = false;
-    touchReleaseTimer = 5; // Gradually release control
+    touchReleaseTimer = 5;
 }
 
 // Particle system
@@ -665,8 +597,7 @@ function createParticle(x, y, color) {
 
 function addCollisionParticles(x, y, angle, color) {
     const count = 10;
-    const spread = Math.PI / 3; // 60 degrees spread
-    
+    const spread = Math.PI / 3;
     for (let i = 0; i < count; i++) {
         const particleAngle = angle * (Math.PI / 180) + (Math.random() * spread - spread / 2);
         const speed = Math.random() * 2 + 1;
@@ -680,7 +611,6 @@ function addCollisionParticles(x, y, angle, color) {
             alpha: 1,
             fadeSpeed: Math.random() * 0.04 + 0.02
         };
-        
         particles.push(particle);
     }
 }
@@ -688,15 +618,11 @@ function addCollisionParticles(x, y, angle, color) {
 function updateParticles(deltaTime) {
     for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
-        
         p.x += p.speedX * deltaTime;
         p.y += p.speedY * deltaTime;
         p.alpha -= p.fadeSpeed * deltaTime * 0.05;
-        
-        // Remove faded particles
         if (p.alpha <= 0) {
             particles.splice(i, 1);
-            // Create a new particle to replace it
             if (gameRunning) {
                 particles.push(createParticle());
             }
@@ -712,9 +638,8 @@ function renderParticles() {
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
     }
-    
     ctx.globalAlpha = 1;
 }
 
-// Initialize the game when the page loads
+// Initialize game on load
 window.onload = init;
