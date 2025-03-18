@@ -1,0 +1,192 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Arial', sans-serif;
+}
+
+body {
+    background-color: #000;
+    color: #fff;
+    overflow: hidden;
+    touch-action: none;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#game-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#menu {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.85);
+    z-index: 10;
+}
+
+.title {
+    font-size: 5vmin;
+    color: #0ff;
+    text-shadow: 0 0 10px #0ff, 0 0 20px #0ff;
+    margin-bottom: 5vh;
+    animation: pulse 2s infinite;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.7; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.05); }
+    100% { opacity: 0.7; transform: scale(1); }
+}
+
+.btn {
+    background: transparent;
+    border: 2px solid #0ff;
+    color: #0ff;
+    padding: 1.5vh 3vw;
+    margin: 1vh 0;
+    font-size: 2.5vmin;
+    cursor: pointer;
+    transition: all 0.3s;
+    outline: none;
+    border-radius: 5px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    width: 40vmin;
+    text-align: center;
+}
+
+.btn:hover, .btn:active {
+    background-color: #0ff;
+    color: #000;
+    box-shadow: 0 0 15px #0ff, 0 0 25px #0ff;
+    transform: translateY(-2px);
+}
+
+#radio-toggle-btn {
+    width: 40vmin;
+    font-size: 2vmin;
+    margin-top: 1vh;
+    background-color: rgba(0, 255, 255, 0.1);
+}
+
+#hud {
+    position: absolute;
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    padding: 4vh 2vw; /* Increased top padding */
+    z-index: 5;
+    pointer-events: none;
+}
+
+.hud-item {
+    color: #0ff;
+    font-size: 2vmin;
+    text-shadow: 0 0 5px #0ff;
+    pointer-events: auto;
+}
+
+#lives {
+    display: flex;
+}
+
+.life {
+    width: 2vmin;
+    height: 2vmin;
+    background: #0ff;
+    margin-right: 0.5vmin;
+    box-shadow: 0 0 5px #0ff;
+    border-radius: 50%;
+}
+
+.lost {
+    background: #333;
+    box-shadow: none;
+}
+
+#pause-btn {
+    background: transparent;
+    border: none;
+    color: #0ff;
+    cursor: pointer;
+    font-size: 2vmin;
+}
+
+#game-over {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.85);
+    z-index: 10;
+}
+
+.score-display {
+    font-size: 4vmin;
+    color: #0ff;
+    margin-bottom: 3vh;
+}
+
+#particles {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+/* Touchpad control styles */
+#touch-pad {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 70%;
+    height: 50px;
+    background-color: rgba(0, 255, 255, 0.1);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: 25px;
+    z-index: 5;
+    touch-action: none;
+    display: none; /* Initially hidden */
+}
+
+#touch-indicator {
+    position: absolute;
+    height: 40px;
+    width: 40px;
+    border-radius: 20px;
+    background-color: rgba(0, 255, 255, 0.5);
+    top: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+}

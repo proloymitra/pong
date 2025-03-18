@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Neo Pong</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="particles"></div>
+        <canvas id="game-canvas"></canvas>
+        
+        <div id="hud">
+            <div class="hud-item" id="score">Score: 0</div>
+            <div class="hud-item" id="lives">
+                <div class="life"></div>
+                <div class="life"></div>
+                <div class="life"></div>
+                <div class="life"></div>
+                <div class="life"></div>
+            </div>
+            <button class="hud-item" id="pause-btn">⏸️</button>
+        </div>
+        
+        <!-- Touch pad control -->
+        <div id="touch-pad">
+            <div id="touch-indicator"></div>
+        </div>
+        
+        <div id="menu">
+            <h1 class="title">Neo Pong</h1>
+            <button class="btn" id="start-btn">Start Game</button>
+            <button class="btn" id="exit-btn">Exit</button>
+            <button class="btn" id="radio-toggle-btn">Radio: Off</button>
+        </div>
+        
+        <div id="game-over">
+            <h1 class="title">Game Over</h1>
+            <div class="score-display">Final Score: <span id="final-score">0</span></div>
+            <button class="btn" id="restart-btn">Play Again</button>
+            <button class="btn" id="menu-btn">Main Menu</button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
