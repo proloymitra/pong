@@ -77,14 +77,17 @@ function init() {
     window.addEventListener('resize', handleResize);
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
-    canvas.addEventListener('touchstart', handleTouchStart);
-    canvas.addEventListener('touchmove', handleTouchMove);
-    canvas.addEventListener('touchend', handleTouchEnd);
+    // Only attach canvas touch events for non-mobile devices.
+    if (!isMobile) {
+        canvas.addEventListener('touchstart', handleTouchStart);
+        canvas.addEventListener('touchmove', handleTouchMove);
+        canvas.addEventListener('touchend', handleTouchEnd);
+    }
     canvas.addEventListener('mousedown', handleMouseDown);
     canvas.addEventListener('mousemove', handleMouseMove);
     canvas.addEventListener('mouseup', handleMouseUp);
     
-    // Set up touchpad event listeners
+    // Set up touchpad event listeners (used on mobile)
     touchPad.addEventListener('touchstart', handleTouchPadStart);
     touchPad.addEventListener('touchmove', handleTouchPadMove);
     touchPad.addEventListener('touchend', handleTouchPadEnd);
@@ -97,10 +100,8 @@ function init() {
     pauseBtn.addEventListener('click', togglePause);
     radioToggleBtn.addEventListener('click', toggleRadio);
     
-    // Initial resize
+    // Initial resize and start the animation loop
     handleResize();
-    
-    // Start the animation loop
     requestAnimationFrame(gameLoop);
 }
 
@@ -119,10 +120,11 @@ function handleResize() {
     paddleSpeed = gameWidth * 0.015;
     initialBallSpeed = gameHeight * 0.0001; // Reduced even further for better playability
     
-    // Update touchpad position and size
+    // Update touchpad position and size for mobile devices
     if (isMobile) {
         touchPad.style.display = gameRunning ? 'block' : 'none';
-        touchPad.style.width = `${gameWidth * 0.7}px`;
+        touchPad.style.width = `${gameWidth * 0.9}px`;  // Increased width for a larger hit area
+        touchPad.style.height = `${gameHeight * 0.1}px`; // Set a visible height if not already defined in CSS
         touchPad.style.bottom = `${gameHeight * 0.05}px`;
     }
     
@@ -209,13 +211,13 @@ function update(deltaTime) {
     // Touch/mouse control - override keyboard target position
     if (touchX !== null) {
         targetX = Math.min(
-            Math.max(0, touchX - paddleWidth/2),
+            Math.max(0, touchX - paddleWidth / 2),
             gameWidth - paddleWidth
         );
     }
     
-    // Apply smooth movement to player paddle - with improved responsiveness on mobile
-    const smoothingFactor = isMobile ? 0.3 : 0.2; // More responsive on mobile
+    // Apply smooth movement – using a higher smoothing factor on mobile for quicker response
+    const smoothingFactor = isMobile ? 0.5 : 0.2;
     playerPaddleX += (targetX - playerPaddleX) * smoothingFactor;
     
     // Detect and fix stuck paddle
@@ -225,7 +227,7 @@ function update(deltaTime) {
             // Force paddle to center or last known good position
             if (lastValidTouchX !== null) {
                 playerPaddleX = Math.min(
-                    Math.max(0, lastValidTouchX - paddleWidth/2), 
+                    Math.max(0, lastValidTouchX - paddleWidth / 2), 
                     gameWidth - paddleWidth
                 );
             } else {
@@ -251,14 +253,14 @@ function update(deltaTime) {
     ballY += ballSpeedY * deltaTime;
     
     // Ball collision with side walls
-    if (ballX < ballSize/2 || ballX > gameWidth - ballSize/2) {
+    if (ballX < ballSize / 2 || ballX > gameWidth - ballSize / 2) {
         ballSpeedX = -ballSpeedX;
         // Add particles for wall collision
         addCollisionParticles(ballX, ballY, ballSpeedX > 0 ? 180 : 0);
     }
     
     // Ball collision with top wall (AI goal)
-    if (ballY < ballSize/2 + safeAreaTop) {
+    if (ballY < ballSize / 2 + safeAreaTop) {
         // Check if it hits AI paddle
         if (ballX > aiPaddleX && ballX < aiPaddleX + paddleWidth) {
             ballSpeedY = Math.abs(ballSpeedY);
@@ -266,7 +268,7 @@ function update(deltaTime) {
             const hitPos = (ballX - aiPaddleX) / paddleWidth;
             ballSpeedX += (hitPos - 0.5) * initialBallSpeed * 2;
             // Add particles for paddle collision
-            addCollisionParticles(ballX, ballY + ballSize/2, 270);
+            addCollisionParticles(ballX, ballY + ballSize / 2, 270);
             // Speed up the ball
             increaseBallSpeed();
             // Increase score
@@ -279,7 +281,7 @@ function update(deltaTime) {
     }
     
     // Ball collision with bottom wall (Player goal)
-    if (ballY > gameHeight - ballSize/2 - safeAreaBottom) {
+    if (ballY > gameHeight - ballSize / 2 - safeAreaBottom) {
         // Check if it hits player paddle
         if (ballX > playerPaddleX && ballX < playerPaddleX + paddleWidth) {
             ballSpeedY = -Math.abs(ballSpeedY);
@@ -287,7 +289,7 @@ function update(deltaTime) {
             const hitPos = (ballX - playerPaddleX) / paddleWidth;
             ballSpeedX += (hitPos - 0.5) * initialBallSpeed * 2;
             // Add particles for paddle collision
-            addCollisionParticles(ballX, ballY - ballSize/2, 90);
+            addCollisionParticles(ballX, ballY - ballSize / 2, 90);
             // Speed up the ball
             increaseBallSpeed();
             // Increase score
@@ -328,8 +330,8 @@ function draw() {
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.setLineDash([15, 15]);
-    ctx.moveTo(0, gameHeight/2);
-    ctx.lineTo(gameWidth, gameHeight/2);
+    ctx.moveTo(0, gameHeight / 2);
+    ctx.lineTo(gameWidth, gameHeight / 2);
     ctx.stroke();
     ctx.setLineDash([]);
     
@@ -349,7 +351,7 @@ function draw() {
     ctx.fillStyle = '#fff';
     ctx.shadowColor = '#0ff';
     ctx.shadowBlur = 15;
-    ctx.arc(ballX, ballY, ballSize/2, 0, Math.PI * 2);
+    ctx.arc(ballX, ballY, ballSize / 2, 0, Math.PI * 2);
     ctx.fill();
     
     // Reset shadow
@@ -392,7 +394,7 @@ function increaseBallSpeed() {
     
     // Cap to maximum speed
     const maxSpeed = initialBallSpeed * 4;
-    const currentSpeed = Math.sqrt(ballSpeedX*ballSpeedX + ballSpeedY*ballSpeedY);
+    const currentSpeed = Math.sqrt(ballSpeedX * ballSpeedX + ballSpeedY * ballSpeedY);
     if (currentSpeed > maxSpeed) {
         const ratio = maxSpeed / currentSpeed;
         ballSpeedX *= ratio;
@@ -568,9 +570,8 @@ function handleTouchMove(e) {
 }
 
 function handleTouchEnd(e) {
-    // Don't immediately set touchX to null to prevent paddle from sticking
-    // Instead, gradually release control over the next few frames
-    touchReleaseTimer = 5; // Will count down in update function
+    // Gradually release control over the next few frames to avoid sticky paddle
+    touchReleaseTimer = 5;
     e.preventDefault();
 }
 
@@ -667,7 +668,7 @@ function addCollisionParticles(x, y, angle, color) {
     const spread = Math.PI / 3; // 60 degrees spread
     
     for (let i = 0; i < count; i++) {
-        const particleAngle = angle * (Math.PI / 180) + (Math.random() * spread - spread/2);
+        const particleAngle = angle * (Math.PI / 180) + (Math.random() * spread - spread / 2);
         const speed = Math.random() * 2 + 1;
         const particle = {
             x: x,
